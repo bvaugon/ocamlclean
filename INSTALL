@@ -1,0 +1,71 @@
+                   Installing OCamlClean on a Unix machine
+                   ---------------------------------------
+
+PREREQUISITES
+
+* The OCaml standard distribution
+
+
+INSTALLATION INSTRUCTIONS
+
+1- Configure the system. From the top directory, do:
+
+        ./configure
+
+This generates the two configuration files "Makefile.conf" and "config.ml"
+in the ./etc/ subdirectory.
+
+The "configure" script accepts the following options:
+
+-bindir <dir>                   (default: /usr/local/bin)
+        Directory where the binaries will be installed.
+
+-mandir <dir>                   (default: /usr/local/man/man1)
+        Directory where the manual pages will be installed.
+
+-prefix <dir>                   (default: /usr/local)
+        Set bindir and mandir to <dir>/bin, <dir>/man/man1 respectively.
+
+
+Examples:
+
+  Standard installation in /usr/{bin,man} instead of /usr/local:
+    ./configure -prefix /usr
+
+  Installation in /usr, man pages in section "l":
+    ./configure -bindir /usr/bin -mandir /usr/man/manl
+
+
+2- From the top directory, do:
+
+        make
+
+This builds the ocamlclean program in directory: ./bin/.
+
+
+3- You can now install the OCamlClean system. This will create the
+following command (in the binary directory selected during
+autoconfiguration):
+
+        ocamlclean     an OCaml bytecode cleaner
+
+From the top directory, become superuser and do:
+
+        umask 022       # make sure to give read & execute permission to all
+        make install
+
+4- Installation is complete. Time to clean up. From the toplevel
+directory, do:
+
+        make clean
+
+
+UNINSTALLATION INSTRUCTIONS
+
+1- If configuration files (./etc/Makefile.conf and ./etc/config.ml)
+have been lost, run again ./configure from the top directory with the
+same options as at step 1 of installation.
+
+2- From the top directory, become superuser and do:
+
+        make uninstall
