@@ -41,8 +41,8 @@ and bc =
   | Vectlength
   | Getvectitem
   | Setvectitem
-  | Getstringchar
-  | Setstringchar
+  | Getbyteschar
+  | Setbyteschar
   | Branch of ptr
   | Branchif of ptr
   | Branchifnot of ptr
@@ -51,8 +51,6 @@ and bc =
   | Pushtrap of ptr
   | Poptrap
   | Raise
-  | Reraise
-  | Raisenotrace
   | Checksignals
   | Ccall of int * int
   | Const of int
@@ -93,6 +91,9 @@ and bc =
   | Stop
   | Event
   | Break
+  | Reraise
+  | Raisenotrace
+  | Getstringchar
   | Nop
 ;;
 
@@ -195,8 +196,8 @@ let parse read =
         | 79 ->  [ Vectlength ]
         | 80 ->  [ Getvectitem ]
         | 81 ->  [ Setvectitem ]
-        | 82 ->  [ Getstringchar ]
-        | 83 ->  [ Setstringchar ]
+        | 82 ->  [ Getbyteschar ]
+        | 83 ->  [ Setbyteschar ]
         | 84 ->  [ Branch (read_ptr ()) ]
         | 85 ->  [ Branchif (read_ptr ()) ]
         | 86 ->  [ Branchifnot (read_ptr ()) ]
@@ -265,8 +266,9 @@ let parse read =
         | 143 -> [ Stop ]
         | 144 -> [ Event ]
         | 145 -> [ Break ]
-        | 146 ->  [ Reraise ]
-        | 147 ->  [ Raisenotrace ]
+        | 146 -> [ Reraise ]
+        | 147 -> [ Raisenotrace ]
+        | 148 -> [ Getstringchar ]
         | _ -> raise (Exn (Printf.sprintf "invalid opcode: %d" opcode))
       with End_of_file -> raise (Exn "unexpected end of code section")
     in
@@ -306,8 +308,8 @@ let print_bc oc bc =
     | Vectlength        -> Printf.fprintf oc "VECTLENGTH"
     | Getvectitem       -> Printf.fprintf oc "GETVECTITEM"
     | Setvectitem       -> Printf.fprintf oc "SETVECTITEM"
-    | Getstringchar     -> Printf.fprintf oc "GETSTRINGCHAR"
-    | Setstringchar     -> Printf.fprintf oc "SETSTRINGCHAR"
+    | Getbyteschar      -> Printf.fprintf oc "GETBYTESCHAR"
+    | Setbyteschar      -> Printf.fprintf oc "SETBYTESCHAR"
     | Branch ptr        -> Printf.fprintf oc "BRANCH %d" ptr.instr_ind
     | Branchif ptr      -> Printf.fprintf oc "BRANCHIF %d" ptr.instr_ind
     | Branchifnot ptr   -> Printf.fprintf oc "BRANCHIFNOT %d" ptr.instr_ind
@@ -321,8 +323,6 @@ let print_bc oc bc =
     | Pushtrap ptr      -> Printf.fprintf oc "PUSHTRAP %d" ptr.instr_ind
     | Poptrap           -> Printf.fprintf oc "POPTRAP"
     | Raise             -> Printf.fprintf oc "RAISE"
-    | Reraise           -> Printf.fprintf oc "RERAISE"
-    | Raisenotrace      -> Printf.fprintf oc "RAISENOTRACE"
     | Checksignals      -> Printf.fprintf oc "CHECKSIGNALS"
     | Ccall (n, ind)    -> Printf.fprintf oc "CCALL %d %d" n ind
     | Const n           -> Printf.fprintf oc "CONST %d" n
@@ -363,5 +363,8 @@ let print_bc oc bc =
     | Stop              -> Printf.fprintf oc "STOP"
     | Event             -> Printf.fprintf oc "EVENT"
     | Break             -> Printf.fprintf oc "BREAK"
+    | Reraise           -> Printf.fprintf oc "RERAISE"
+    | Raisenotrace      -> Printf.fprintf oc "RAISENOTRACE"
+    | Getstringchar     -> Printf.fprintf oc "GETSTRINGCHAR"
     | Nop               -> Printf.fprintf oc "NOP"
 ;;

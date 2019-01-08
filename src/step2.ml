@@ -16,7 +16,7 @@ let is_removable prim bc =
     | Ccall (_, p) -> Prim.no_side_effect prim.(p)
     | Pop _ | Apply _ | Pushtrap _ | Poptrap | Raise | Reraise
     | Raisenotrace | Offsetclosure _ | Offsetref _ | Checksignals
-    | Event | Break | Setglobal _ | Setvectitem | Setstringchar
+    | Event | Break | Setglobal _ | Setvectitem | Setbyteschar
     | Branch _ | Switch (_, _) | Setfield _ | Setfloatfield _
     | Blint (_, _) | Bleint (_, _) | Bgtint (_, _) | Bgeint (_, _)
     | Beq (_, _) | Bneq (_, _) | Bultint (_, _) | Bugeint (_, _)
@@ -146,7 +146,7 @@ let compute_deps code =
           use_accu (); f (succ i) s i z;
         | Acc n ->
           use_stack n; f (succ i) s i z;
-        | Setvectitem | Setstringchar ->
+        | Setvectitem | Setbyteschar ->
           use_accu (); use_stack 0; use_stack 1;
           f (succ i) (pop s 2) i (z - 2);
         | Branch ptr ->
@@ -158,7 +158,7 @@ let compute_deps code =
           f (succ i) (pop s (n - 1)) i (z - n + 1);
         | Addint | Subint | Mulint | Divint | Modint | Andint | Orint | Xorint
         | Lslint | Lsrint | Asrint | Eq | Neq | Ltint | Leint | Gtint | Geint
-        | Setfield _ | Setfloatfield _ | Getvectitem | Getstringchar
+        | Setfield _ | Setfloatfield _ | Getvectitem | Getbyteschar | Getstringchar
         | Ultint | Ugeint ->
           use_accu (); use_stack 0; f (succ i) (pop s 1) i (z - 1);
         | Blint (_, ptr) | Bleint (_, ptr) | Bgtint (_, ptr) | Bgeint (_, ptr)
@@ -242,7 +242,7 @@ let clean_code code stacks in_main cleanables blocked =
             | Addint | Subint | Mulint | Divint | Modint | Andint | Orint
             | Xorint | Lslint | Lsrint | Asrint | Eq | Neq | Ltint | Leint
             | Gtint | Geint | Ultint | Ugeint | Getvectitem
-            | Getstringchar ->
+            | Getstringchar | Getbyteschar ->
               Pop (compute_new_stack_top_size 1)
             | Ccall (n, _) | Makeblock (n, _) | Makefloatblock n ->
               Pop (compute_new_stack_top_size (n - 1))
@@ -250,7 +250,7 @@ let clean_code code stacks in_main cleanables blocked =
               Pop (compute_new_stack_top_size (max (n - 1) 0))
             | Pop _ | Apply _ | Pushtrap _ | Poptrap | Raise | Reraise
             | Raisenotrace | Offsetclosure _ | Offsetref _ | Checksignals
-            | Event | Break | Setglobal _ | Setvectitem | Setstringchar
+            | Event | Break | Setglobal _ | Setvectitem | Setbyteschar
             | Branch _ | Switch (_, _) | Setfield _ | Setfloatfield _
             | Blint (_, _) | Bleint (_, _) | Bgtint (_, _) | Bgeint (_, _)
             | Beq (_, _) | Bneq (_, _) | Bultint (_, _) | Bugeint (_, _)

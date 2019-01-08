@@ -1,2 +1,4 @@
 src/_build/
 src/config.ml
+etc/Makefile.conf
+etc/config.ml

@@ -205,8 +205,8 @@ let export oc code =
               | Vectlength            -> write 79
               | Getvectitem           -> write 80
               | Setvectitem           -> write 81
-              | Getstringchar         -> write 82
-              | Setstringchar         -> write 83
+              | Getbyteschar          -> write 82
+              | Setbyteschar          -> write 83
               | Branch ptr            -> write 84 ; write_ptr 1 ptr
               | Branchif ptr          -> write 85 ; write_ptr 1 ptr
               | Branchifnot ptr       -> write 86 ; write_ptr 1 ptr
@@ -268,6 +268,7 @@ let export oc code =
               | Break                 -> write 145
               | Reraise               -> write 146
               | Raisenotrace          -> write 147
+              | Getstringchar         -> write 148
             end;
             normal (succ i);
     and after_pop i acc =

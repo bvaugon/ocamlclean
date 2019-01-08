@@ -15,7 +15,7 @@ type section = Code | Dlpt | Dlls | Prim | Data | Symb | Crcs | Dbug
 
 type t = (section * int * int) list
 
-let magic_str = "Caml1999X011"
+let magic_str = "Caml1999X023"
 
 let parse ic =
   let magic_size = String.length magic_str in
