@@ -9,30 +9,21 @@
 ##                                                                       ##
 ###########################################################################
 
-include etc/Makefile.conf
+DUNE=dune
 
-all: etc/Makefile.config
-	$(call compile, src)
+all:
+	$(DUNE) build @install
 
 install: all
-	mkdir -p "$(BINDIR)"
-	mkdir -p "$(MAN1DIR)"
-	cp bin/ocamlclean "$(BINDIR)/ocamlclean"
-	cp man/ocamlclean.1.gz "$(MAN1DIR)/ocamlclean.1.gz"
+	$(DUNE) install
 
 uninstall:
-	-rm -f "$(BINDIR)/ocamlclean"
-	-rm -f "$(MAN1DIR)/ocamlclean.1.gz"
-
-etc/Makefile.conf:
-	@echo "You must run ./configure before" 1>&2
-	@exit 1
+	$(DUNE) uninstall
 
 dist: clean
 	dist/distgen
 
 clean:
-	@rm -f *~ */*~ */*/*~
-	$(call clean, src)
+	$(DUNE) clean
 
 .PHONY: all install uninstall dist clean

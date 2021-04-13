@@ -15,12 +15,13 @@ cd $(dirname "$0")
 VERSION=$(cat ../VERSION)
 DEST=ocamlclean-"$VERSION"
 
-for d in "$DEST" "$DEST/dist" "$DEST/etc"; do
+for d in "$DEST" "$DEST/dist"; do
     mkdir "$d"
 done
 
 for d in \
-    bin configure INSTALL LICENSE-fr LICENSE-en Makefile man src VERSION;
+    INSTALL LICENSE-fr LICENSE-en Makefile man src VERSION \
+    dune-project ocamlclean.opam;
 do
     cp -R ../"$d" "$DEST/"
 done

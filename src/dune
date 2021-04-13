@@ -1,0 +1,7 @@
+(executable
+  (name main)
+  (public_name ocamlclean))
+
+(rule
+  (with-stdout-to config.ml
+    (echo "let version = \"%{read-lines:../VERSION}\"")))

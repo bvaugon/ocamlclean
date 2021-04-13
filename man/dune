@@ -1,0 +1,3 @@
+(install
+  (files ocamlclean.1.gz)
+  (section man))
