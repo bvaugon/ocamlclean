@@ -4,4 +4,4 @@
 
 (rule
   (with-stdout-to config.ml
-    (echo "let version = \"%{read-lines:../VERSION}\"")))
+    (echo "let version = \"%{version:ocamlclean}\"")))

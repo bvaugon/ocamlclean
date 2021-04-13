@@ -12,7 +12,7 @@
 
 cd $(dirname "$0")
 
-VERSION=$(cat ../VERSION)
+VERSION=$(sed -ne 's/.*(version \+\(.*\) *).*/\1/p' ../dune-project)
 DEST=ocamlclean-"$VERSION"
 
 for d in "$DEST" "$DEST/dist"; do
@@ -20,7 +20,7 @@ for d in "$DEST" "$DEST/dist"; do
 done
 
 for d in \
-    INSTALL LICENSE-fr LICENSE-en Makefile man src VERSION \
+    INSTALL LICENSE-fr LICENSE-en Makefile man src \
     dune-project ocamlclean.opam;
 do
     cp -R ../"$d" "$DEST/"
