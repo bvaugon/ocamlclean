@@ -96,8 +96,6 @@ endef
 ###
 
 echo -n "\
-let ocamlc = \"$OCAMLC\"
-let ocamlclean = \"$BINDIR/ocamlclean\"
 let version = \"$VERSION\"
 " > etc/config.ml
 
