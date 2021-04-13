@@ -49,7 +49,6 @@ check_command "cp"
 OCAMLOPT=$(which ocamlopt.opt || which ocamlopt)
 OCAMLC=$(which ocamlc.opt || which ocamlc)
 OCAMLBUILD=$(which ocamlbuild)
-VERSION=$(cat VERSION)
 PWD=$(pwd)
 
 ###
@@ -94,10 +93,6 @@ endef
 " > etc/Makefile.conf
 
 ###
-
-echo -n "\
-let version = \"$VERSION\"
-" > etc/config.ml
 
 ###
 

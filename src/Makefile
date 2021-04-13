@@ -23,8 +23,8 @@ $(TARG): _build/$(BUILD)
 _build/$(BUILD): $(SRCS) config.ml
 	$(OCAMLBUILD) -cflag -g $(BUILD)
 
-config.ml: $(ETC)/config.ml
-	cp $< $@
+config.ml: ../VERSION
+	sed -ne '1s/.*/let version = "&"/p' $< > $@
 
 clean:
 	@$(OCAMLBUILD) -clean
