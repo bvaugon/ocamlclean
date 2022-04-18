@@ -20,35 +20,11 @@ function usage () {
     error "Usage: $0 [ -prefix <dir> ] [ -bindir <dir> ] [ -mandir <dir> ]"
 }
 
-function check_command () {
-    which "$1" > /dev/null
-    if [ $? -ne 0 ]; then
-        error "Error: \"$1\" not installed"
-    fi
-}
-
 ###
 
-check_command "ocamlc"
-check_command "ocamlopt"
-check_command "ocamlbuild"
-check_command "ocamldep"
-check_command "mkdir"
-check_command "rmdir"
-check_command "chmod"
-check_command "echo"
-check_command "cat"
-check_command "sed"
-check_command "cp"
-check_command "rm"
-check_command "ar"
-check_command "cp"
-
-###
-
-OCAMLOPT=$(which ocamlopt.opt || which ocamlopt)
-OCAMLC=$(which ocamlc.opt || which ocamlc)
-OCAMLBUILD=$(which ocamlbuild)
+OCAMLOPT=$(ocamlc -where)/../../bin/ocamlopt
+OCAMLC=$(ocamlc -where)/../../bin/ocamlc
+OCAMLBUILD=$(ocamlc -where)/../../bin/ocamlbuild
 VERSION=$(cat VERSION)
 PWD=$(pwd)
 
