@@ -9,7 +9,7 @@
 (*                                                                       *)
 (*************************************************************************)
 
-open Instr
+open OByteLib.Normalised_instr
 
 let compute_used code =
   let nb_instr = Array.length code in
@@ -18,22 +18,20 @@ let compute_used code =
     if i < nb_instr && not used.(i) then (
       used.(i) <- true;
       match code.(i) with
-        | Branch ptr ->
-          f ptr.instr_ind;
-        | Branchif ptr | Branchifnot ptr | Beq (_, ptr) | Bneq (_, ptr)
-        | Blint (_, ptr) | Bleint (_, ptr) | Bgtint (_, ptr) | Bgeint (_, ptr)
-        | Bultint (_, ptr) | Bugeint (_, ptr)
-        | Pushretaddr ptr | Closure (_, ptr) | Pushtrap ptr ->
+        | BRANCH ptr ->
+          f ptr
+        | BRANCHIF ptr | BRANCHIFNOT ptr | COMPBRANCH (_, _, ptr)
+        | PUSH_RETADDR ptr | CLOSURE (_, ptr) | PUSHTRAP ptr ->
           f (succ i);
-          f ptr.instr_ind;
-        | Closurerec (_, _, o, t) ->
+          f ptr;
+        | CLOSUREREC (_, ptrs) ->
           f (succ i);
-          f o.instr_ind;
-          Array.iter (fun ptr -> f ptr.instr_ind) t;
-        | Switch (_, tab) ->
-          Array.iter (fun ptr -> f ptr.instr_ind) tab;
-        | Grab _ -> f (pred i) ; f (succ i)
-        | Return _ | Appterm (_, _) | Stop | Raise | Reraise | Raisenotrace -> ()
+          Array.iter f ptrs;
+        | SWITCH (iptrs, pptrs) ->
+          Array.iter f iptrs;
+          Array.iter f pptrs;
+        | GRAB _ -> f (pred i) ; f (succ i)
+        | RETURN _ | APPTERM (_, _) | STOP | RAISE | RERAISE | RAISE_NOTRACE -> ()
         | _ ->
           f (succ i)
     )
@@ -45,7 +43,7 @@ let compute_used code =
 let clean_code code used =
   let nb_instr = Array.length code in
   for i = 0 to nb_instr - 1 do
-    if not used.(i) then code.(i) <- Nop;
+    if not used.(i) then code.(i) <- Step1.nop;
   done
 ;;
 

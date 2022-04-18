@@ -21,7 +21,7 @@ $(TARG): _build/$(BUILD)
 	cp $< $@
 
 _build/$(BUILD): $(SRCS) config.ml
-	$(OCAMLBUILD) -cflag -g $(BUILD)
+	$(OCAMLBUILD) -cflags -I,+../obytelib,-g -lflags -I,+../obytelib,obytelib.cmxa $(BUILD)
 
 config.ml: $(ETC)/config.ml
 	cp $< $@

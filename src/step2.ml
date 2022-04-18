@@ -9,18 +9,18 @@
 (*                                                                       *)
 (*************************************************************************)
 
-open Instr
+open OByteLib.Normalised_instr
 
 let is_removable prim bc =
   match bc with
-    | Ccall (_, p) -> Prim.no_side_effect prim.(p)
-    | Pop _ | Apply _ | Pushtrap _ | Poptrap | Raise | Reraise
-    | Raisenotrace | Offsetclosure _ | Offsetref _ | Checksignals
-    | Event | Break | Setglobal _ | Setvectitem | Setbyteschar
-    | Branch _ | Switch (_, _) | Setfield _ | Setfloatfield _
-    | Blint (_, _) | Bleint (_, _) | Bgtint (_, _) | Bgeint (_, _)
-    | Beq (_, _) | Bneq (_, _) | Bultint (_, _) | Bugeint (_, _)
-    | Branchif _ | Branchifnot _ | Divint | Modint | Stop ->
+    | C_CALL (_, p) ->
+      Prim.no_side_effect prim.(p)
+    |  POP _ | APPLY _ | PUSHTRAP _ | POPTRAP | RAISE | RERAISE
+    | RAISE_NOTRACE | OFFSETCLOSURE _ | OFFSETREF _ | CHECK_SIGNALS
+    | SETGLOBAL _ | SETVECTITEM | SETBYTESCHAR
+    | BRANCH _ | BRANCHIF _ | BRANCHIFNOT _ 
+    | SWITCH (_, _) | SETFIELD _ | SETFLOATFIELD _
+    | COMPBRANCH (_, _, _) | BINAPP (DIV | MOD) | STOP ->
       false
     | _ ->
       true
@@ -92,19 +92,19 @@ let compute_deps code =
     if i < nb_instr && (test_stack || test_accu) then (
       in_main.(i) <- true;
       match code.(i) with
-        | Push ->
+        | PUSH ->
           use_accu (); f (succ i) (i :: s) a (succ z);
-        | Pop n ->
+        | POP n ->
           f (succ i) (pop s n) a (z - n);
-        | Assign n ->
+        | ASSIGN n ->
           let rec g s k =
             if k = 0 then i :: List.tl s else
               List.hd s :: g (List.tl s) (pred k)
           in
           use_accu (); f (succ i) (g s n) i z;
-        | Pushretaddr _ ->
+        | PUSH_RETADDR _ ->
           f (succ i) (i :: i :: i :: s) a (z + 3);
-        | Apply n ->
+        | APPLY n ->
           if n > 3 then (
             use_accu (); use_stack_top (n + 3);
             f (succ i) (pop s (n + 3)) i (z - n - 3);
@@ -112,62 +112,62 @@ let compute_deps code =
             use_accu (); use_stack_top n;
             f (succ i) (pop s n) i (z - n);
           )
-        | Closure (n, _) ->
+        | CLOSURE (n, _) ->
           if n > 0 then use_accu (); use_stack_top n;
           f (succ i) (pop s (max (n - 1) 0)) i (z - max (n - 1) 0);
-        | Closurerec (cf, cv, _, _) ->
+        | CLOSUREREC (cv, ct) ->
+          let cf = Array.length ct in
           if cv > 0 then use_accu (); use_stack_top cv;
           let rec g s k = if k = 0 then s else g (i :: s) (pred k) in
           let nb_pop = max (cv - 1) 0 in
           f (succ i) (g (pop s nb_pop) cf) i (z - nb_pop + cf);
-        | Makeblock (n, _) | Makefloatblock n ->
+        | MAKEBLOCK (_, n) | MAKEFLOATBLOCK n ->
           use_accu (); use_stack_top (n - 1);
           f (succ i) (pop s (n - 1)) i (z - n + 1);
-        | Pushtrap ptr ->
-          f ptr.instr_ind s a z;
+        | PUSHTRAP ptr ->
+          f ptr s a z;
           f (succ i) (i :: i :: i :: i :: s) a (z + 4);
-        | Poptrap ->
+        | POPTRAP ->
           f (succ i) (pop s 4) a (z - 4);
-        | Raise | Reraise | Raisenotrace ->
+        | RAISE | RERAISE | RAISE_NOTRACE ->
           use_accu ();
-        | Getmethod | Getdynmet ->
+        | GETMETHOD | GETDYNMET ->
           use_accu (); use_stack 0; f (succ i) s i z;
-        | Getpubmet (_, _) ->
+        | GETPUBMET _ ->
           use_accu (); f (succ i) (i :: s) i (succ z);
-        | Checksignals | Event | Break | Nop ->
+        | CHECK_SIGNALS ->
           f (succ i) s a z;
-        | Getglobalfield (_, _) | Offsetclosure _ | Getglobal _
-        | Atom _ | Const _ | Envacc _ ->
+        | OFFSETCLOSURE _ | GETGLOBAL _
+        | ATOM _ | CONSTINT _ | ENVACC _ ->
           f (succ i) s i z;
-        | Offsetref _ ->
+        | OFFSETREF _ ->
           use_accu (); f (succ i) s a z;
-        | Getfield _ | Getfloatfield _ | Vectlength | Setglobal _
-        | Negint | Boolnot | Offsetint _ | Isint ->
+        | GETFIELD _ | GETFLOATFIELD _ | SETGLOBAL _
+        | UNAPP _ ->
           use_accu (); f (succ i) s i z;
-        | Acc n ->
+        | ACC n ->
           use_stack n; f (succ i) s i z;
-        | Setvectitem | Setbyteschar ->
+        | SETVECTITEM | SETBYTESCHAR ->
           use_accu (); use_stack 0; use_stack 1;
           f (succ i) (pop s 2) i (z - 2);
-        | Branch ptr ->
-          f ptr.instr_ind s a z;
-        | Switch (_, tab) ->
-          use_accu (); Array.iter (fun ptr -> f ptr.instr_ind s a z) tab;
-        | Ccall (n, _) ->
+        | BRANCH ptr ->
+          f ptr s a z;
+        | SWITCH (iptrs, pptrs) ->
+          use_accu ();
+          Array.iter (fun ptr -> f ptr s a z) iptrs;
+          Array.iter (fun ptr -> f ptr s a z) pptrs;
+        | C_CALL (n, _) ->
           use_accu (); use_stack_top (n - 1);
           f (succ i) (pop s (n - 1)) i (z - n + 1);
-        | Addint | Subint | Mulint | Divint | Modint | Andint | Orint | Xorint
-        | Lslint | Lsrint | Asrint | Eq | Neq | Ltint | Leint | Gtint | Geint
-        | Setfield _ | Setfloatfield _ | Getvectitem | Getbyteschar | Getstringchar
-        | Ultint | Ugeint ->
+        | BINAPP _ | COMPARE _
+        | SETFIELD _ | SETFLOATFIELD _ | GETVECTITEM
+        | GETBYTESCHAR | GETSTRINGCHAR ->
           use_accu (); use_stack 0; f (succ i) (pop s 1) i (z - 1);
-        | Blint (_, ptr) | Bleint (_, ptr) | Bgtint (_, ptr) | Bgeint (_, ptr)
-        | Beq (_, ptr) | Bneq (_, ptr) | Bultint (_, ptr) | Bugeint (_, ptr)
-        | Branchif ptr | Branchifnot ptr ->
-          use_accu (); f ptr.instr_ind s a z; f (succ i) s a z;
-        | Return _ | Restart | Grab _ | Appterm (_, _) ->
+        | COMPBRANCH (_, _, ptr) | BRANCHIF ptr | BRANCHIFNOT ptr ->
+          use_accu (); f ptr s a z; f (succ i) s a z;
+        | RETURN _ | RESTART | GRAB _ | APPTERM (_, _) ->
           error ()
-        | Stop -> ()
+        | STOP -> ()
     )
   in
   f 0 [] (-1) 0;
@@ -204,7 +204,7 @@ let compute_blocked code accus stacks in_main use_ind cleanables =
         use_ind.(i);
       if not cleanables.(i) then
         match code.(i) with
-          | Assign n -> List.iter (fun k -> blocked.(k) <- true) stacks.(i).(n)
+          | ASSIGN n -> List.iter (fun k -> blocked.(k) <- true) stacks.(i).(n)
           | _ -> ()
     )
   done;
@@ -227,43 +227,39 @@ let clean_code code stacks in_main cleanables blocked =
       if cleanables.(i) then
         code.(i) <-
           match code.(i) with
-            | Push | Pushretaddr _ | Getpubmet (_, _) ->
-              if blocked.(i) then code.(i) else Nop
-            | Closurerec (cf, cv, _, _) ->
+            | PUSH | PUSH_RETADDR _ | GETPUBMET _ ->
+              if blocked.(i) then code.(i) else Step1.nop
+            | CLOSUREREC (cv, ct) ->
+              let cf = Array.length ct in
               let nb_pop = max (cv - 1) 0 - cf in
-              if nb_pop > 0 then Pop (compute_new_stack_top_size nb_pop)
-              else if nb_pop = 0 || not blocked.(i) then Nop
+              if nb_pop > 0 then POP (compute_new_stack_top_size nb_pop)
+              else if nb_pop = 0 || not blocked.(i) then Step1.nop
               else code.(i)
-            | Nop | Getmethod | Getdynmet | Envacc _ | Atom _ | Getfield _
-            | Getfloatfield _ | Vectlength | Getglobal _
-            | Getglobalfield (_, _) | Const _ | Boolnot | Negint
-            | Offsetint _ | Isint | Acc _  | Assign _ ->
-              Nop
-            | Addint | Subint | Mulint | Divint | Modint | Andint | Orint
-            | Xorint | Lslint | Lsrint | Asrint | Eq | Neq | Ltint | Leint
-            | Gtint | Geint | Ultint | Ugeint | Getvectitem
-            | Getstringchar | Getbyteschar ->
-              Pop (compute_new_stack_top_size 1)
-            | Ccall (n, _) | Makeblock (n, _) | Makefloatblock n ->
-              Pop (compute_new_stack_top_size (n - 1))
-            | Closure (n, _) ->
-              Pop (compute_new_stack_top_size (max (n - 1) 0))
-            | Pop _ | Apply _ | Pushtrap _ | Poptrap | Raise | Reraise
-            | Raisenotrace | Offsetclosure _ | Offsetref _ | Checksignals
-            | Event | Break | Setglobal _ | Setvectitem | Setbyteschar
-            | Branch _ | Switch (_, _) | Setfield _ | Setfloatfield _
-            | Blint (_, _) | Bleint (_, _) | Bgtint (_, _) | Bgeint (_, _)
-            | Beq (_, _) | Bneq (_, _) | Bultint (_, _) | Bugeint (_, _)
-            | Branchif _ | Branchifnot _ | Stop
-            | Appterm (_, _) | Return _ | Restart | Grab _ ->
+            | GETMETHOD | GETDYNMET | ENVACC _ | ATOM _
+            | GETFIELD _ | GETFLOATFIELD _ | GETGLOBAL _
+            | CONSTINT _ | UNAPP _ | ACC _ | ASSIGN _ ->
+              Step1.nop
+            | BINAPP _ | COMPARE _
+            | GETVECTITEM | GETSTRINGCHAR | GETBYTESCHAR ->
+              POP (compute_new_stack_top_size 1)
+            | C_CALL (n, _) | MAKEBLOCK (_, n) | MAKEFLOATBLOCK n ->
+              POP (compute_new_stack_top_size (n - 1))
+            | CLOSURE (n, _) ->
+              POP (compute_new_stack_top_size (max (n - 1) 0))
+            | POP _ | APPLY _ | PUSHTRAP _ | POPTRAP
+            | RAISE | RERAISE | RAISE_NOTRACE | OFFSETCLOSURE _
+            | OFFSETREF _ | CHECK_SIGNALS
+            | SETGLOBAL _ | SETVECTITEM | SETBYTESCHAR
+            | BRANCH _ | SWITCH (_, _) | SETFIELD _ | SETFLOATFIELD _
+            | COMPBRANCH (_, _, _) | BRANCHIF _ | BRANCHIFNOT _ | STOP
+            | APPTERM (_, _) | RETURN _ | RESTART | GRAB _ ->
               error ()
               else (* not cleanable *)
                 match code.(i) with
-                  | Acc n -> code.(i) <- Acc (compute_new_stack_top_size n)
-                  | Pop n -> code.(i) <- Pop (compute_new_stack_top_size n)
+                  | ACC n -> code.(i) <- ACC (compute_new_stack_top_size n)
+                  | POP n -> code.(i) <- POP (compute_new_stack_top_size n)
                   | _ -> ()
   done;
-  ignore (code, cleanables, blocked);
 ;;
 
 let clean code prim =

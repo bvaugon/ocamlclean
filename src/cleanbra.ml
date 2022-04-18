@@ -9,16 +9,13 @@
 (*                                                                       *)
 (*************************************************************************)
 
-open Instr
+open OByteLib.Normalised_instr
 
 let clean code =
   let f i bc =
     match bc with
-      | Branch ptr | Branchif ptr | Branchifnot ptr | Beq (_, ptr)
-      | Bneq (_, ptr) | Blint (_, ptr) | Bleint (_, ptr) | Bgtint (_, ptr)
-      | Bgeint (_, ptr) | Bultint (_, ptr) | Bugeint (_, ptr) ->
-        if ptr.instr_ind = i + 1 then
-          code.(i) <- Nop
+      | BRANCH ptr | BRANCHIF ptr | BRANCHIFNOT ptr | COMPBRANCH (_, _, ptr) ->
+        if ptr = i + 1 then code.(i) <- Step1.nop;
       | _ -> ()
   in
   Array.iteri f code;

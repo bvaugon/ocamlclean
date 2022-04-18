@@ -9,22 +9,27 @@
 (*                                                                       *)
 (*************************************************************************)
 
-open Instr
+open OByteLib.Normalised_instr
 
-let remap_code new_code ptr_map =
-  let nb_instr = Array.length new_code in
-  let remap_ptr ptr = ptr.instr_ind <- ptr_map.(ptr.instr_ind) in
-  for i = 0 to nb_instr - 1 do
-    match new_code.(i) with
-      | Pushretaddr ptr | Closure (_, ptr) | Branch ptr | Branchif ptr
-      | Branchifnot ptr | Pushtrap ptr | Beq (_,ptr) | Bneq (_,ptr)
-      | Blint (_,ptr) | Bleint (_,ptr) | Bgtint (_,ptr) | Bgeint (_,ptr)
-      | Bultint (_,ptr) | Bugeint (_,ptr) ->
-        remap_ptr ptr;
-      | Switch (_, tab) -> Array.iter remap_ptr tab;
-      | Closurerec (_, _, ptr, tab) -> remap_ptr ptr;Array.iter remap_ptr tab;
-      | _ -> ()
-  done;
+let nop = POP 0
+
+let remap_instr ptr_map instr =
+  let map_ptr ptr = ptr_map.(ptr) in
+  match instr with
+  | PUSH_RETADDR ptr        -> PUSH_RETADDR (map_ptr ptr)
+  | CLOSURE (n, ptr)        -> CLOSURE (n, map_ptr ptr)
+  | CLOSUREREC (n, ptrs)    -> CLOSUREREC (n, Array.map map_ptr ptrs)
+  | BRANCH ptr              -> BRANCH (map_ptr ptr)
+  | BRANCHIF ptr            -> BRANCHIF (map_ptr ptr)
+  | BRANCHIFNOT ptr         -> BRANCHIFNOT (map_ptr ptr)
+  | PUSHTRAP ptr            -> PUSHTRAP (map_ptr ptr)
+  | COMPBRANCH (op, n, ptr) -> COMPBRANCH (op, n, map_ptr ptr)
+  | SWITCH (iptrs, pptrs)   -> SWITCH (Array.map map_ptr iptrs, Array.map map_ptr pptrs)
+  | _                       -> instr
+;;
+
+let remap_code ptr_map new_code =
+  Array.map (remap_instr ptr_map) new_code
 ;;
 
 let compute_cleanables orig_code data =
@@ -34,18 +39,19 @@ let compute_cleanables orig_code data =
   let getg_fields = Array.make nb_glob [] in
   let setg_ind = Array.make nb_glob 0 in
   let cleanables = Array.make nb_glob None in
-  let f ind bc =
-    match bc with
-      | Getglobal n -> getg_counters.(n) <- succ getg_counters.(n);
-      | Setglobal n ->
-        setg_counters.(n) <- succ setg_counters.(n);
-        setg_ind.(n) <- ind;
-      | Getglobalfield (n, p) ->
-        let l = getg_fields.(n) in
-        getg_fields.(n) <- if List.mem p l then l else p :: l
-      | _ -> ()
-  in
-  Array.iteri f orig_code;
+  for ind = 0 to Array.length orig_code - 2 do
+    match orig_code.(ind), orig_code.(ind + 1) with
+    | GETGLOBAL n, GETFIELD p ->
+      let l = getg_fields.(n) in
+      getg_fields.(n) <- if List.mem p l then l else p :: l
+    | GETGLOBAL n, _ ->
+      getg_counters.(n) <- succ getg_counters.(n);
+    | SETGLOBAL n, _ ->
+      setg_counters.(n) <- succ setg_counters.(n);
+      setg_ind.(n) <- ind;
+    | _, _ ->
+      ()
+  done;
   for i = 0 to nb_glob - 1 do
     if setg_counters.(i) = 1 && getg_counters.(i) = 0 then
       cleanables.(i) <- Some (setg_ind.(i), getg_fields.(i))
@@ -53,8 +59,18 @@ let compute_cleanables orig_code data =
   cleanables
 ;;
 
+let compute_branch_targets code =
+  let nb_instr = Array.length code in
+  let btargs = Array.make nb_instr false in
+  Array.iter (fun instr ->
+    let ptrs = get_ptrs instr in
+    List.iter (fun ptr -> btargs.(ptr) <- true) ptrs;
+  ) code;
+  btargs
+;;
+
 let prepare_code old_code cleanables ignore_fulls =
-  let btargs = Code.compute_branch_targets old_code in
+  let btargs = compute_branch_targets old_code in
   let glob_nb = Array.length cleanables in
   let add_nb = ref 0 in
   let rec f indg adds cleans =
@@ -65,7 +81,7 @@ let prepare_code old_code cleanables ignore_fulls =
             not btargs.(setg_ind - 1) && not btargs.(setg_ind - 2)
           then
             match (old_code.(setg_ind - 2), old_code.(setg_ind - 1)) with
-              | (Makeblock (size, _), Pop popn) ->
+              | (MAKEBLOCK (_, size), POP popn) ->
                 let rec g i =
                   if i >= size then i else
                     let ind = setg_ind - 4 - 2 * i in
@@ -73,14 +89,14 @@ let prepare_code old_code cleanables ignore_fulls =
                       i
                     else
                       match (old_code.(ind), old_code.(ind + 1)) with
-                        | (Push, Acc _) -> g (i + 1)
+                        | (PUSH, ACC _) -> g (i + 1)
                         | _ -> i
                 in
                 let max = g 0 in
                 if List.length used_fields = size && ignore_fulls then
                   f (succ indg) adds cleans
                 else if max < size then (
-                  old_code.(setg_ind - 1) <- Pop (popn + size - max);
+                  old_code.(setg_ind - 1) <- POP (popn + size - max);
                   add_nb := !add_nb + size - max;
                   f (succ indg) ((setg_ind, max, size - max) :: adds)
                     ((setg_ind, used_fields) :: cleans)
@@ -91,11 +107,11 @@ let prepare_code old_code cleanables ignore_fulls =
                   f (succ indg) adds cleans
               | None -> f (succ indg) adds cleans
           else
-            (List.sort Pervasives.compare adds, cleans)
+            (List.sort compare adds, cleans)
   in
   let adds, cleans = f 0 [] [] in
   let old_code_size = Array.length old_code in
-  let new_code = Array.make (old_code_size + 2 * !add_nb) Nop in
+  let new_code = Array.make (old_code_size + 2 * !add_nb) nop in
   let ptr_map = Array.make old_code_size (-1) in
   let rec g adds_rest i j =
     match adds_rest with
@@ -104,8 +120,8 @@ let prepare_code old_code cleanables ignore_fulls =
         let rec f k l =
           if k = lim_k then
             for n = 0 to add_nb - 1 do
-              new_code.(l + 2 * n) <- Push;
-              new_code.(l + 2 * n + 1) <- Acc (add_nb - 1);
+              new_code.(l + 2 * n) <- PUSH;
+              new_code.(l + 2 * n + 1) <- ACC (add_nb - 1);
             done
           else (
             new_code.(l) <- old_code.(k);
@@ -117,7 +133,7 @@ let prepare_code old_code cleanables ignore_fulls =
         for n = 0 to max - 1 do
           let k = setg_ind - 3 - 2 * n in
           match old_code.(k) with
-            | Acc p -> old_code.(k) <- Acc (p + add_nb);
+            | ACC p -> old_code.(k) <- ACC (p + add_nb);
             | _ -> assert false
         done;
         g tl lim_k (j + lim_k - i + 2 * add_nb);
@@ -136,7 +152,7 @@ let prepare_code old_code cleanables ignore_fulls =
     List.map (fun (setg_ind, used_fields) -> (ptr_map.(setg_ind), used_fields))
       cleans
   in
-  remap_code old_code ptr_map;
+  let new_code = remap_code ptr_map new_code in
   (new_code, new_cleans)
 ;;
 
@@ -144,15 +160,15 @@ let clean_code new_code data cleans =
   let data_map = Array.make (Array.length data) [||] in
   let update_new_code (setg_ind, used_fields) =
     match new_code.(setg_ind-2), new_code.(setg_ind-1), new_code.(setg_ind) with
-      | Makeblock (mbs, mbt), Pop (pn), Setglobal (sgn) ->
+      | MAKEBLOCK (mbt, mbs), POP pn, SETGLOBAL sgn ->
         let nb_used_fields = List.length used_fields in
         let cpt = ref 0 in
         data_map.(sgn) <- Array.make mbs (-1);
         List.iter (fun n -> data_map.(sgn).(n) <- 0) used_fields;
         for i = 0 to mbs - 1 do
           if data_map.(sgn).(i) = -1 then (
-            new_code.(setg_ind - 4 - 2 * i) <- Nop;
-            new_code.(setg_ind - 3 - 2 * i) <- Nop;
+            new_code.(setg_ind - 4 - 2 * i) <- nop;
+            new_code.(setg_ind - 3 - 2 * i) <- nop;
           ) else (
             data_map.(sgn).(i) <- !cpt;
             incr cpt;
@@ -164,25 +180,24 @@ let clean_code new_code data cleans =
             incr cpt
           else
             match new_code.(setg_ind - 3 - 2 * i) with
-              | Acc k -> new_code.(setg_ind - 3 - 2 * i) <- Acc (k - !cpt)
+              | ACC k -> new_code.(setg_ind - 3 - 2 * i) <- ACC (k - !cpt)
               | _ -> assert false
         done;
         if nb_used_fields <> 0 then
-          new_code.(setg_ind-2) <- Makeblock (nb_used_fields, mbt)
+          new_code.(setg_ind-2) <- MAKEBLOCK (mbt, nb_used_fields)
         else
-          new_code.(setg_ind-2) <- Atom mbt;
-        if nb_used_fields = 0 then new_code.(setg_ind-1) <- Pop (pn - 1);
+          new_code.(setg_ind-2) <- ATOM mbt;
+        if nb_used_fields = 0 then new_code.(setg_ind-1) <- POP (pn - 1);
       | _ -> assert false
   in
-  let remap_data i bc =
-    match bc with
-      | Getglobalfield (n, p) ->
-        if data_map.(n) <> [||] then
-          new_code.(i) <- Getglobalfield (n, data_map.(n).(p));
-      | _ -> ()
-  in
   List.iter update_new_code cleans;
-  Array.iteri remap_data new_code;
+  for i = 0 to Array.length new_code - 2 do
+    match new_code.(i), new_code.(i + 1) with
+    | GETGLOBAL n, GETFIELD p ->
+      if data_map.(n) <> [||] then new_code.(i + 1) <- GETFIELD data_map.(n).(p);
+    | _ ->
+      ()
+  done
 ;;
 
 let clean old_code data =

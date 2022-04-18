@@ -9,12 +9,14 @@
 (*                                                                       *)
 (*************************************************************************)
 
+open OByteLib.Normalised_instr
+
 exception Exn of string
 
 let parse ic index =
   let (offset, _) =
     try
-      Index.find_section index Index.Data
+      OByteLib.Index.find_section index OByteLib.Section.DATA
     with Not_found ->
       raise (Exn "code section not found")
   in
@@ -45,18 +47,15 @@ let clean code orig_data =
   done;
   for i = 0 to nb_instr - 1 do
     match code.(i) with
-      | Instr.Getglobal p ->
-        code.(i) <- Instr.Getglobal (remap p);
-      | Instr.Getglobalfield (p, n) ->
-        code.(i) <- Instr.Getglobalfield (remap p, n);
+      | GETGLOBAL p -> code.(i) <- GETGLOBAL (remap p);
       | _ -> ()
   done;
   for i = 0 to nb_instr - 1 do
     match code.(i) with
-      | Instr.Setglobal p ->
+      | SETGLOBAL p ->
         begin match map.(p) with
-          | None -> code.(i) <- Instr.Nop;
-          | Some new_p -> code.(i) <- Instr.Setglobal new_p;
+          | None -> code.(i) <- Step1.nop;
+          | Some new_p -> code.(i) <- SETGLOBAL new_p;
         end
       | _ -> ()
   done;

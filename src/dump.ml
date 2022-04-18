@@ -36,7 +36,7 @@ let size mem = Array.fold_left (fun acc tbl -> acc + Array.length tbl) 0 mem;;
 
 let parse ic index section =
   try
-    let (offset, length) = Index.find_section index section in
+    let (offset, length) = OByteLib.Index.find_section index section in
     seek_in ic offset;
     (section, import ic length)
   with Not_found -> (section, [||])

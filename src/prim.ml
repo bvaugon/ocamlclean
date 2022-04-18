@@ -11,35 +11,6 @@
 
 exception Exn of string
 
-let parse ic index =
-  let (offset, length) =
-    try
-      Index.find_section index Index.Prim
-    with Not_found ->
-      raise (Exn "prim section not found")
-  in
-  seek_in ic offset;
-  let buf = Buffer.create 16 in
-  let rec f i res =
-    if i <> length then
-      let c = input_char ic in
-      if int_of_char c <> 0 then
-        begin
-          Buffer.add_char buf c;
-          f (i + 1) res
-        end
-      else
-        let name = Buffer.contents buf in
-        Buffer.clear buf;
-        f (i + 1) (name :: res)
-    else if Buffer.length buf <> 0 then
-      raise (Exn "unexpected end of prim section")
-    else
-      res
-  in
-  Array.of_list (List.rev (f 0 []))
-;;
-
 let clean code orig_prim =
   let nb_instr = Array.length code in
   let nb_prim = Array.length orig_prim in
@@ -58,15 +29,11 @@ let clean code orig_prim =
   in
   for i = 0 to nb_instr - 1 do
     match code.(i) with
-      | Instr.Ccall (n, p) -> code.(i) <- Instr.Ccall (n, remap p);
+      | OByteLib.Normalised_instr.C_CALL (n, p) -> code.(i) <- OByteLib.Normalised_instr.C_CALL (n, remap p);
       | _ -> ()
   done;
   let new_prim = Array.init !counter (fun p -> orig_prim.(invmap.(p))) in
   new_prim
-;;
-
-let export oc prim =
-  Array.iter (Printf.fprintf oc "%s\000") prim;
 ;;
 
 let no_side_effect prim_name =

@@ -9,32 +9,36 @@
 (*                                                                       *)
 (*************************************************************************)
 
+open OByteLib.Normalised_instr
+
 let globalise code old_data_nb map =
   let glob_counter = ref old_data_nb in
   fun (setg_ind, nb_fields) ->
     match code.(setg_ind - 1), code.(setg_ind) with
-      | Instr.Pop popn, Instr.Setglobal glob_ind ->
+      | POP popn, SETGLOBAL glob_ind ->
         map.(glob_ind) <- Some !glob_counter;
         for i = 0 to nb_fields - 1 do
           let acc_ind = setg_ind - 3 - 2 * i in
           match code.(acc_ind) with
-            | Instr.Acc old_ofs ->
+            | ACC old_ofs ->
               code.(acc_ind) <-
-                Instr.Acc (old_ofs + i - nb_fields + 1);
-              code.(acc_ind + 1) <- Instr.Setglobal !glob_counter;
+                ACC (old_ofs + i - nb_fields + 1);
+              code.(acc_ind + 1) <- SETGLOBAL !glob_counter;
               incr glob_counter;
             | _ -> assert false
         done;
-        code.(setg_ind - 1) <- Instr.Pop (popn - nb_fields);
+        code.(setg_ind - 1) <- POP (popn - nb_fields);
       | _ -> assert false
 ;;
 
 let remap_globals map code =
-  for i = 0 to Array.length code - 1 do
-    match code.(i) with
-      | Instr.Getglobalfield (g_ind, f_ind) ->
+  for i = 0 to Array.length code - 2 do
+    match code.(i), code.(i + 1) with
+      | GETGLOBAL g_ind, GETFIELD f_ind ->
         begin match map.(g_ind) with
-          | Some new_ind -> code.(i) <- Instr.Getglobal (new_ind + f_ind)
+          | Some new_ind ->
+            code.(i) <- GETGLOBAL (new_ind + f_ind);
+            code.(i + 1) <- Step1.nop;
           | None -> ()
         end
       | _ -> ()
