@@ -55,7 +55,7 @@ PWD=$(pwd)
 ###
 
 BINDIR=/usr/local/bin
-MANDIR=/usr/local/man/man1
+MANDIR=/usr/local/man
 
 while [ $# -ne 0 ]; do
     case "$1" in
@@ -63,7 +63,7 @@ while [ $# -ne 0 ]; do
         -mandir)   MANDIR="$2"; shift ;;
         -prefix)
             BINDIR="$2"/bin
-            MANDIR="$2"/man/man1
+            MANDIR="$2"/man
             shift;;
         *)
         usage "Don't know what to do with \"$1\""
