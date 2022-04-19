@@ -22,11 +22,11 @@ function usage () {
 
 ###
 
-OCAMLOPT=$(ocamlc -where)/../../bin/ocamlopt
-OCAMLC=$(ocamlc -where)/../../bin/ocamlc
-OCAMLBUILD=$(ocamlc -where)/../../bin/ocamlbuild
-VERSION=$(cat VERSION)
-PWD=$(pwd)
+OCAMLOPT="$(ocamlc -where)/../../bin/ocamlopt"
+OCAMLC="$(ocamlc -where)/../../bin/ocamlc"
+OCAMLBUILD="$(ocamlc -where)/../../bin/ocamlbuild"
+VERSION="$(cat VERSION)"
+PWD="$(pwd)"
 
 ###
 
